@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { extractFlashcards } from '../services/llmService';
 import { fetchWikipediaContent } from '../services/wikipediaService';
-import { FlashcardSet } from '../types';
+import { FlashcardSet, Flashcard } from '../types';
 import { getLLMConfig } from '../config';
 import { MockModeToggle } from './MockModeToggle';
+import { v4 as uuidv4 } from 'uuid';
 import '../styles/InputForm.css';
 
 interface InputFormProps {
@@ -16,6 +17,8 @@ const InputForm: React.FC<InputFormProps> = ({ setFlashcardSet, setLoading, setE
   const [isUrlInput, setIsUrlInput] = useState(true);
   const [input, setInput] = useState('');
   const [useMockMode, setUseMockMode] = useState(false);
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
     const savedSetting = localStorage.getItem('use_mock_mode');
@@ -94,6 +97,147 @@ const InputForm: React.FC<InputFormProps> = ({ setFlashcardSet, setLoading, setE
     }
   };
 
+  const handleImportJSON = () => {
+    if (jsonFileInputRef.current) {
+      jsonFileInputRef.current.click();
+    }
+  };
+
+  const handleImportCSV = () => {
+    if (csvFileInputRef.current) {
+      csvFileInputRef.current.click();
+    }
+  };
+
+  const handleJSONFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      setError('Please select a valid JSON file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+        
+        // Validate the JSON structure
+        if (!data.cards || !Array.isArray(data.cards)) {
+          throw new Error('Invalid JSON format: missing or invalid cards array');
+        }
+
+        // Validate each card has required fields
+        const validatedCards: Flashcard[] = data.cards.map((card: any, index: number) => {
+          if (!card.question || !card.answer) {
+            throw new Error(`Invalid card at index ${index}: missing question or answer`);
+          }
+          return {
+            id: card.id || uuidv4(),
+            question: String(card.question),
+            answer: String(card.answer)
+          };
+        });
+
+        const flashcardSet: FlashcardSet = {
+          title: data.title || 'Imported JSON Flashcards',
+          source: 'JSON Import',
+          cards: validatedCards,
+          createdAt: data.createdAt ? new Date(data.createdAt) : new Date()
+        };
+
+        setFlashcardSet(flashcardSet);
+        setError(null);
+      } catch (error) {
+        setError(`Error importing JSON: ${error instanceof Error ? error.message : 'Invalid file format'}`);
+      }
+    };
+
+    reader.onerror = () => {
+      setError('Error reading file');
+    };
+
+    reader.readAsText(file);
+    // Reset the input value to allow re-importing the same file
+    event.target.value = '';
+  };
+
+  const handleCSVFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setError('Please select a valid CSV file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const lines = content.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          throw new Error('CSV file must contain at least a header row and one data row');
+        }
+
+        const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
+        const questionIndex = headers.findIndex(h => h === 'question');
+        const answerIndex = headers.findIndex(h => h === 'answer');
+
+        if (questionIndex === -1 || answerIndex === -1) {
+          throw new Error('CSV file must contain "Question" and "Answer" columns');
+        }
+
+        const cards: Flashcard[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.replace(/^"|"$/g, '').trim());
+          
+          if (values.length <= Math.max(questionIndex, answerIndex)) {
+            continue; // Skip incomplete rows
+          }
+
+          const question = values[questionIndex];
+          const answer = values[answerIndex];
+
+          if (question && answer) {
+            cards.push({
+              id: uuidv4(),
+              question,
+              answer
+            });
+          }
+        }
+
+        if (cards.length === 0) {
+          throw new Error('No valid flashcards found in CSV file');
+        }
+
+        const flashcardSet: FlashcardSet = {
+          title: 'Imported CSV Flashcards',
+          source: 'CSV Import',
+          cards,
+          createdAt: new Date()
+        };
+
+        setFlashcardSet(flashcardSet);
+        setError(null);
+      } catch (error) {
+        setError(`Error importing CSV: ${error instanceof Error ? error.message : 'Invalid file format'}`);
+      }
+    };
+
+    reader.onerror = () => {
+      setError('Error reading file');
+    };
+
+    reader.readAsText(file);
+    // Reset the input value to allow re-importing the same file
+    event.target.value = '';
+  };
+
   return (
     <div className="input-form-container">
       <form onSubmit={handleSubmit}>
@@ -135,6 +279,47 @@ const InputForm: React.FC<InputFormProps> = ({ setFlashcardSet, setLoading, setE
         
         <button className="submit-button" type="submit">Generate Flashcards</button>
       </form>
+
+      <div className="import-section">
+        <h3>Or Import Existing Flashcards</h3>
+        <div className="import-buttons">
+          <button 
+            type="button" 
+            className="import-button json-import"
+            onClick={handleImportJSON}
+          >
+            📄 Import JSON
+          </button>
+          <button 
+            type="button" 
+            className="import-button csv-import"
+            onClick={handleImportCSV}
+          >
+            📊 Import CSV
+          </button>
+        </div>
+        
+        <input
+          ref={jsonFileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleJSONFileChange}
+          style={{ display: 'none' }}
+        />
+        
+        <input
+          ref={csvFileInputRef}
+          type="file"
+          accept=".csv"
+          onChange={handleCSVFileChange}
+          style={{ display: 'none' }}
+        />
+        
+        <div className="import-info">
+          <p><strong>JSON Format:</strong> Use exported JSON files from this app</p>
+          <p><strong>CSV Format:</strong> Must have "Question" and "Answer" columns</p>
+        </div>
+      </div>
     </div>
   );
 };

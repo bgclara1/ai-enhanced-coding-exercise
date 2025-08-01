@@ -80,7 +80,105 @@
 }
 
 .submit-button:hover {
+  background-color: #2980b9;
+  transform: translateY(-1px);
+}
+
+/* Import Section Styles */
+.import-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #ecf0f1;
+}
+
+.import-section h3 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.import-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  justify-content: center;
+}
+
+.import-button {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #3498db;
+  background-color: white;
+  color: #3498db;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.import-button:hover {
+  background-color: #3498db;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+}
+
+.import-button:active {
+  transform: translateY(0);
+}
+
+.json-import {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.json-import:hover {
+  background-color: #e74c3c;
+  color: white;
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+}
+
+.csv-import {
+  border-color: #27ae60;
+  color: #27ae60;
+}
+
+.csv-import:hover {
   background-color: #27ae60;
+  color: white;
+  box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+}
+
+.import-info {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.import-info p {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+  color: #7f8c8d;
+}
+
+.import-info strong {
+  color: #2c3e50;
+}
+
+/* Responsive design for import section */
+@media (max-width: 600px) {
+  .import-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .import-button {
+    width: 200px;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 768px) {

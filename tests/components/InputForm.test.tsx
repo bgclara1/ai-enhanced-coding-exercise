@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import InputForm from '../../src/components/InputForm';
 import { extractFlashcards } from '../../src/services/llmService';
 import { fetchWikipediaContent } from '../../src/services/wikipediaService';
@@ -342,6 +343,318 @@ describe('InputForm Component', () => {
     await waitFor(() => {
       // Verify that mock mode (true) was passed to extractFlashcards
       expect(mockExtractFlashcards).toHaveBeenCalledWith(mockWikiContent.content, undefined, true);
+    });
+  });
+
+  // Import functionality tests
+  describe('JSON Import', () => {
+    test('successfully imports valid JSON file', async () => {
+      const validJsonData = {
+        title: 'Test Flashcards',
+        source: 'Test Source',
+        cards: [
+          { id: '1', question: 'What is React?', answer: 'A JavaScript library' },
+          { id: '2', question: 'What is TypeScript?', answer: 'A superset of JavaScript' }
+        ],
+        createdAt: '2024-01-01T00:00:00.000Z'
+      };
+
+      const jsonBlob = new Blob([JSON.stringify(validJsonData)], { type: 'application/json' });
+      const file = new File([jsonBlob], 'test.json', { type: 'application/json' });
+
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />
+      );
+
+      const importButton = screen.getByRole('button', { name: /import json/i });
+      expect(importButton).toBeInTheDocument();
+
+      // Simulate file selection
+      const fileInput = document.querySelector('input[type="file"][accept=".json"]') as HTMLInputElement;
+      expect(fileInput).toBeInTheDocument();
+
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        writable: false,
+      });
+
+      fireEvent.change(fileInput);
+
+      await waitFor(() => {
+        expect(mockSetFlashcardSet).toHaveBeenCalledWith({
+          title: 'Test Flashcards',
+          source: 'JSON Import',
+          cards: [
+            { id: '1', question: 'What is React?', answer: 'A JavaScript library' },
+            { id: '2', question: 'What is TypeScript?', answer: 'A superset of JavaScript' }
+          ],
+          createdAt: expect.any(Date)
+        });
+      });
+
+      expect(mockSetError).toHaveBeenCalledWith(null);
+    });
+
+    test('handles JSON file without IDs by generating them', async () => {
+      const jsonDataWithoutIds = {
+        title: 'Test Flashcards',
+        cards: [
+          { question: 'What is React?', answer: 'A JavaScript library' }
+        ]
+      };
+
+      const jsonBlob = new Blob([JSON.stringify(jsonDataWithoutIds)], { type: 'application/json' });
+      const file = new File([jsonBlob], 'test.json', { type: 'application/json' });
+
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />
+      );
+
+      const fileInput = document.querySelector('input[type="file"][accept=".json"]') as HTMLInputElement;
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        writable: false,
+      });
+
+      fireEvent.change(fileInput);
+
+      await waitFor(() => {
+        expect(mockSetFlashcardSet).toHaveBeenCalledWith({
+          title: 'Test Flashcards',
+          source: 'JSON Import',
+          cards: [
+            { id: expect.any(String), question: 'What is React?', answer: 'A JavaScript library' }
+          ],
+          createdAt: expect.any(Date)
+        });
+      });
+    });
+
+    test('handles invalid JSON file format', async () => {
+      const invalidJson = 'invalid json content';
+      const jsonBlob = new Blob([invalidJson], { type: 'application/json' });
+      const file = new File([jsonBlob], 'test.json', { type: 'application/json' });
+
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />
+      );
+
+      const fileInput = document.querySelector('input[type="file"][accept=".json"]') as HTMLInputElement;
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        writable: false,
+      });
+
+      fireEvent.change(fileInput);
+
+      await waitFor(() => {
+        expect(mockSetError).toHaveBeenCalledWith(expect.stringContaining('Error importing JSON'));
+      });
+    });
+
+    test('handles JSON file with missing cards array', async () => {
+      const invalidJsonData = {
+        title: 'Test Flashcards',
+        source: 'Test Source'
+        // Missing cards array
+      };
+
+      const jsonBlob = new Blob([JSON.stringify(invalidJsonData)], { type: 'application/json' });
+      const file = new File([jsonBlob], 'test.json', { type: 'application/json' });
+
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />
+      );
+
+      const fileInput = document.querySelector('input[type="file"][accept=".json"]') as HTMLInputElement;
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        writable: false,
+      });
+
+      fireEvent.change(fileInput);
+
+      await waitFor(() => {
+        expect(mockSetError).toHaveBeenCalledWith(expect.stringContaining('missing or invalid cards array'));
+      });
+    });
+
+    test('rejects non-JSON file extension', async () => {
+      const textBlob = new Blob(['some text'], { type: 'text/plain' });
+      const file = new File([textBlob], 'test.txt', { type: 'text/plain' });
+
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />
+      );
+
+      const fileInput = document.querySelector('input[type="file"][accept=".json"]') as HTMLInputElement;
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        writable: false,
+      });
+
+      fireEvent.change(fileInput);
+
+      expect(mockSetError).toHaveBeenCalledWith('Please select a valid JSON file');
+    });
+  });
+
+  describe('CSV Import', () => {
+    test('successfully imports valid CSV file', async () => {
+      const csvContent = 'Question,Answer\n"What is React?","A JavaScript library"\n"What is TypeScript?","A superset of JavaScript"';
+      const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+      const file = new File([csvBlob], 'test.csv', { type: 'text/csv' });
+
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />
+      );
+
+      const importButton = screen.getByRole('button', { name: /import csv/i });
+      expect(importButton).toBeInTheDocument();
+
+      const fileInput = document.querySelector('input[type="file"][accept=".csv"]') as HTMLInputElement;
+      expect(fileInput).toBeInTheDocument();
+
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        writable: false,
+      });
+
+      fireEvent.change(fileInput);
+
+      await waitFor(() => {
+        expect(mockSetFlashcardSet).toHaveBeenCalledWith({
+          title: 'Imported CSV Flashcards',
+          source: 'CSV Import',
+          cards: [
+            { id: expect.any(String), question: 'What is React?', answer: 'A JavaScript library' },
+            { id: expect.any(String), question: 'What is TypeScript?', answer: 'A superset of JavaScript' }
+          ],
+          createdAt: expect.any(Date)
+        });
+      });
+
+      expect(mockSetError).toHaveBeenCalledWith(null);
+    });
+
+    test('handles CSV file with missing required columns', async () => {
+      const csvContent = 'Title,Description\n"React","A JavaScript library"';
+      const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+      const file = new File([csvBlob], 'test.csv', { type: 'text/csv' });
+
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />
+      );
+
+      const fileInput = document.querySelector('input[type="file"][accept=".csv"]') as HTMLInputElement;
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        writable: false,
+      });
+
+      fireEvent.change(fileInput);
+
+      await waitFor(() => {
+        expect(mockSetError).toHaveBeenCalledWith(expect.stringContaining('must contain "Question" and "Answer" columns'));
+      });
+    });
+
+    test('rejects non-CSV file extension', async () => {
+      const textBlob = new Blob(['some text'], { type: 'text/plain' });
+      const file = new File([textBlob], 'test.txt', { type: 'text/plain' });
+
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />
+      );
+
+      const fileInput = document.querySelector('input[type="file"][accept=".csv"]') as HTMLInputElement;
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        writable: false,
+      });
+
+      fireEvent.change(fileInput);
+
+      expect(mockSetError).toHaveBeenCalledWith('Please select a valid CSV file');
+    });
+  });
+
+  describe('Import UI Interactions', () => {
+    test('renders import section with buttons and info', () => {
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />
+      );
+
+      expect(screen.getByText('Or Import Existing Flashcards')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /import json/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /import csv/i })).toBeInTheDocument();
+      expect(screen.getByText(/JSON Format:/)).toBeInTheDocument();
+      expect(screen.getByText(/CSV Format:/)).toBeInTheDocument();
+    });
+
+    test('clicking import buttons triggers file input', async () => {
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />
+      );
+
+      const jsonButton = screen.getByRole('button', { name: /import json/i });
+      const csvButton = screen.getByRole('button', { name: /import csv/i });
+      
+      const jsonFileInput = document.querySelector('input[type="file"][accept=".json"]') as HTMLInputElement;
+      const csvFileInput = document.querySelector('input[type="file"][accept=".csv"]') as HTMLInputElement;
+      
+      // Mock the click method
+      const jsonClickSpy = jest.spyOn(jsonFileInput, 'click').mockImplementation(() => {});
+      const csvClickSpy = jest.spyOn(csvFileInput, 'click').mockImplementation(() => {});
+
+      fireEvent.click(jsonButton);
+      expect(jsonClickSpy).toHaveBeenCalled();
+
+      fireEvent.click(csvButton);
+      expect(csvClickSpy).toHaveBeenCalled();
+
+      jsonClickSpy.mockRestore();
+      csvClickSpy.mockRestore();
     });
   });
 });
