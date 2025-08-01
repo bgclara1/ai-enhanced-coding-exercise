@@ -48,6 +48,9 @@ describe('InputForm Component', () => {
     expect(screen.getByRole('button', { name: 'Wikipedia URL' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Generate Flashcards' })).toBeInTheDocument();
     expect(screen.getByText('🚀 Fast Mock Mode')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import from JSON' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import from CSV' })).toBeInTheDocument();
+    expect(screen.getByText('OR')).toBeInTheDocument();
   });
 
   test('switches between URL and text input modes', () => {
@@ -349,5 +352,75 @@ describe('InputForm Component', () => {
       // Verify that mock mode (true) was passed to extractFlashcards
       expect(mockExtractFlashcards).toHaveBeenCalledWith(mockWikiContent.content, undefined, true);
     });
+  });
+
+  describe('Import JSON functionality', () => {
+    test('renders import JSON button', () => {
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />,
+      );
+
+      const importButton = screen.getByRole('button', { name: 'Import from JSON' });
+      expect(importButton).toBeInTheDocument();
+      expect(importButton).toHaveClass('import-json');
+    });
+
+    test('import JSON button is clickable', () => {
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />,
+      );
+
+      const importButton = screen.getByRole('button', { name: 'Import from JSON' });
+      expect(importButton).not.toBeDisabled();
+      
+      // Test that clicking doesn't throw an error
+      expect(() => fireEvent.click(importButton)).not.toThrow();
+    });
+
+    // Note: Complex file upload testing is challenging in JSDOM environment.
+    // The core functionality is tested through integration tests and manual testing.
+  });
+
+  describe('Import CSV functionality', () => {
+    test('renders import CSV button', () => {
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />,
+      );
+
+      const importButton = screen.getByRole('button', { name: 'Import from CSV' });
+      expect(importButton).toBeInTheDocument();
+      expect(importButton).toHaveClass('import-csv');
+    });
+
+    test('import CSV button is clickable', () => {
+      render(
+        <InputForm
+          setFlashcardSet={mockSetFlashcardSet}
+          setLoading={mockSetLoading}
+          setError={mockSetError}
+        />,
+      );
+
+      const importButton = screen.getByRole('button', { name: 'Import from CSV' });
+      expect(importButton).not.toBeDisabled();
+      
+      // Test that clicking doesn't throw an error
+      expect(() => fireEvent.click(importButton)).not.toThrow();
+    });
+
+    // Note: Complex file upload testing is challenging in JSDOM environment.
+    // The core functionality is tested through integration tests and manual testing.
   });
 });
